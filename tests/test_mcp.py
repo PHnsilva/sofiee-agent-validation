@@ -17,6 +17,7 @@ SERVER = StdioServerParameters(
     cwd=ROOT,
 )
 EXPECTED_NAMES = {'validation.verifyClaim', 'validation.auditSearchResults'}
+TEST_TOOL = "validation.verifyClaim"
 PAYLOAD = {'contractVersion': '1.0.0',
  'claim': 'Synthetic record contains code A-17.',
  'dataType': 'authorized_system_record',
@@ -30,7 +31,7 @@ async def discover_and_call():
         listing = await client.list_tools()
         names = {item.name for item in listing.tools}
         tools = {item.name: item for item in listing.tools}
-        result = await client.call_tool("validation.verifyClaim", PAYLOAD)
+        result = await client.call_tool(TEST_TOOL, PAYLOAD)
         return names, tools, result
 
 
@@ -38,7 +39,10 @@ class McpTransportTests(unittest.TestCase):
     def test_real_client_discovers_contract_tools_and_calls_domain_operation(self):
         names, tools, result = asyncio.run(discover_and_call())
         self.assertSetEqual(names, EXPECTED_NAMES)
-        self.assertEqual(tools["validation.verifyClaim"].input_schema["$id"], "https://sofiee-agent-validation.local/contracts/v1/verify-claim.input.schema.json")
+        self.assertEqual(
+            tools[TEST_TOOL].input_schema["$id"],
+            'https://sofiee-agent-validation.local/contracts/v1/verify-claim.input.schema.json',
+        )
         self.assertIsInstance(result.structured_content, dict)
         self.assertEqual(result.structured_content.get("contractVersion"), "1.0.0")
         self.assertFalse(result.is_error)
