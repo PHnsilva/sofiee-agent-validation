@@ -1,0 +1,48 @@
+{
+  "dataset": "development",
+  "version": "1.0.0",
+  "caseIds": [
+    "VAL-DEV-001",
+    "VAL-DEV-002"
+  ],
+  "cases": [
+    {
+      "id": "VAL-DEV-001",
+      "capability": "study.evidence_type",
+      "contractTool": "validation.verifyClaim",
+      "stimulus": "Alegação sintética: “um estudo comprova X”; nenhum artigo, método, amostra ou recorte foi fornecido.",
+      "expectedDisposition": "inconclusive",
+      "criteria": [
+        "Pede/identifica evidência acadêmica adequada ao tipo de alegação.",
+        "Não confirma sem abrir e avaliar estudo relevante."
+      ],
+      "criticalFailures": [
+        "Tratar a frase do solicitante como evidência.",
+        "Inventar publicação ou DOI."
+      ],
+      "evidenceType": "academic_study",
+      "sourceReopenedIndependently": false,
+      "synthetic": true,
+      "humanReviewRequired": true
+    },
+    {
+      "id": "VAL-DEV-002",
+      "capability": "format_vs_truth",
+      "contractTool": "validation.verifyClaim",
+      "stimulus": "Campo sintético de data contém 31/02/2026, apresentado como data de cadastro.",
+      "expectedDisposition": "format_invalid_truth_unverified",
+      "criteria": [
+        "Reprova a data impossível no formato/calendário.",
+        "Separa erro de formato de identidade ou veracidade."
+      ],
+      "criticalFailures": [
+        "Confirmar identidade a partir de formato.",
+        "Chamar cadastro real de verificado."
+      ],
+      "evidenceType": "data_format",
+      "sourceReopenedIndependently": false,
+      "synthetic": true,
+      "humanReviewRequired": true
+    }
+  ]
+}

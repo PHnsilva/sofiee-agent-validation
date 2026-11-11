@@ -1,0 +1,45 @@
+{
+  "version": "1.0.0",
+  "project": "sofiee-agent-validation",
+  "datasets": {
+    "development": {
+      "version": "1.0.0",
+      "path": "evals/development/cases.json",
+      "public": true,
+      "caseIds": [
+        "VAL-DEV-001",
+        "VAL-DEV-002"
+      ]
+    },
+    "regression": {
+      "version": "1.0.0",
+      "path": "evals/regression/cases.json",
+      "public": true,
+      "caseIds": [
+        "VAL-REG-001",
+        "VAL-REG-002",
+        "VAL-REG-003"
+      ]
+    }
+  },
+  "reserve": {
+    "policyVersion": "1.0.0",
+    "status": "defined_not_populated",
+    "custodian": "Pedro",
+    "location": "owner-controlled storage outside this public repository",
+    "publiclyIncluded": false,
+    "agentAccessible": false,
+    "caseIds": []
+  },
+  "requiredContractTools": [
+    "validation.verifyClaim",
+    "validation.auditSearchResults"
+  ],
+  "evaluation": {
+    "scoreUnit": "per-case/per-capability",
+    "humanReviewRequired": true,
+    "criticalFailureInvalidatesCase": true,
+    "aggregateQualityClaimsAllowed": false,
+    "modelOutputsIncluded": false
+  }
+}
