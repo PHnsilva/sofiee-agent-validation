@@ -49,3 +49,16 @@ Este é um dos quatro agentes gerais: [comunicação](https://github.com/PHnsilv
 O repositório é público para consulta e sugestões por issue ou PR. Mudanças posteriores ao bootstrap usam issue, branch e PR com evidências. Revisão e aceite são de Pedro.
 
 </details>
+
+## Runtime local proposto na issue #7
+
+O núcleo recebe operações estruturadas dos contratos v1 e devolve planos de evidência por tipo de dado. Sem conector para reabrir fontes, referências candidatas não são prova, todas as auditorias de Busca ficam inconclusivas e filtros não são removidos. Sem regra de formato explícita, `formatCheck` permanece `not_checked`. O plano e suas limitações estão em [evidência do runtime](docs/RUNTIME_EVIDENCE.md).
+
+O adaptador local Ollama permanece opt-in, mas não é invocado para decidir fatos: sem evidência reaberta, o modelo não pode confirmar/refutar. Nenhuma fonte externa, credencial ou API paga foi usada. O servidor MCP interno permanece na issue #8.
+
+Comandos locais:
+
+    C:\SDKs\Python313\python.exe -m unittest discover -s tests -v
+    C:\SDKs\Python313\python.exe scripts\validate_contracts.py
+    C:\SDKs\Python313\python.exe scripts\check_environment.py
+    C:\SDKs\Python313\python.exe scripts\measure_runtime.py
