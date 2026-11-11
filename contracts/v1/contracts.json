@@ -1,0 +1,94 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "contractVersion": "1.0.0",
+  "purpose": "MCP contracts for evidence-based verification; schemas do not implement source access or establish truth.",
+  "errorSchema": {
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "$id": "https://sofiee-agent-validation.local/contracts/v1/error.schema.json",
+    "type": "object", "additionalProperties": false,
+    "required": ["contractVersion", "code", "message", "retryable"],
+    "properties": {
+      "contractVersion": { "const": "1.0.0" },
+      "code": { "enum": ["invalid_request", "unsupported_data_type", "source_unavailable", "access_not_authorized", "limit_exceeded", "unavailable", "internal_error"] },
+      "message": { "type": "string", "minLength": 1, "maxLength": 500 },
+      "retryable": { "type": "boolean" }
+    }
+  },
+  "tools": [
+    {
+      "name": "validation.verifyClaim",
+      "sideEffects": false,
+      "description": "Choose evidence strategy by data type and verify a claim; provided references are untrusted candidates, not proof.",
+      "errorCodes": ["invalid_request", "unsupported_data_type", "source_unavailable", "access_not_authorized", "limit_exceeded", "unavailable", "internal_error"],
+      "inputSchema": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "$id": "https://sofiee-agent-validation.local/contracts/v1/verify-claim.input.schema.json",
+        "type": "object", "additionalProperties": false,
+        "required": ["contractVersion", "claim", "dataType", "context", "candidateReferences"],
+        "properties": {
+          "contractVersion": { "const": "1.0.0" },
+          "claim": { "type": "string", "minLength": 1, "maxLength": 6000 },
+          "dataType": { "enum": ["study_result", "official_indicator", "registry_record", "standard_or_norm", "offer_or_price", "technical_documentation", "authorized_system_record", "general_fact", "other"] },
+          "context": { "type": "string", "maxLength": 6000 },
+          "candidateReferences": { "type": "array", "maxItems": 30, "items": { "type": "object", "additionalProperties": false, "required": ["reference", "sourceKind"], "properties": { "reference": { "type": "string", "minLength": 1, "maxLength": 2000 }, "sourceKind": { "enum": ["study", "scholarly_repository", "official_indicator", "public_registry", "standards_body", "seller_or_offer", "technical_documentation", "authorized_system_record", "other"] } } } },
+          "userFilters": { "type": "array", "maxItems": 30, "items": { "type": "string", "minLength": 1, "maxLength": 500 } }
+        }
+      },
+      "resultSchema": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "$id": "https://sofiee-agent-validation.local/contracts/v1/verify-claim.result.schema.json",
+        "type": "object", "additionalProperties": false,
+        "required": ["contractVersion", "verdict", "formatCheck", "scope", "evidence", "verificationPlan", "unresolved"],
+        "properties": {
+          "contractVersion": { "const": "1.0.0" },
+          "verdict": { "enum": ["confirmed", "refuted", "inconclusive", "not_checkable"] },
+          "formatCheck": { "enum": ["valid", "invalid", "not_applicable", "not_checked"] },
+          "scope": { "type": "string", "minLength": 1, "maxLength": 2000 },
+          "evidence": { "type": "array", "maxItems": 50, "items": { "type": "object", "additionalProperties": false, "required": ["reference", "sourceKind", "checkedAt", "relation", "excerpt", "independentlyReopened"], "properties": { "reference": { "type": "string", "minLength": 1, "maxLength": 2000 }, "sourceKind": { "enum": ["study", "scholarly_repository", "official_indicator", "public_registry", "standards_body", "seller_or_offer", "technical_documentation", "authorized_system_record", "other"] }, "checkedAt": { "type": "string", "minLength": 1, "maxLength": 64 }, "relation": { "enum": ["supports", "contradicts", "context_only"] }, "excerpt": { "type": "string", "maxLength": 800 }, "independentlyReopened": { "type": "boolean" } } } },
+          "verificationPlan": { "type": "array", "maxItems": 20, "items": { "type": "object", "additionalProperties": false, "required": ["sourceKind", "reason"], "properties": { "sourceKind": { "enum": ["study", "scholarly_repository", "official_indicator", "public_registry", "standards_body", "seller_or_offer", "technical_documentation", "authorized_system_record", "other"] }, "reason": { "type": "string", "minLength": 1, "maxLength": 500 } } } },
+          "unresolved": { "type": "array", "maxItems": 30, "items": { "type": "string", "maxLength": 500 } }
+        }
+      },
+      "examples": {
+        "validInput": { "contractVersion": "1.0.0", "claim": "O registro sintético contém o código A-17.", "dataType": "authorized_system_record", "context": "Fixture público sem dado pessoal.", "candidateReferences": [{ "reference": "fixture://registry/example-1", "sourceKind": "authorized_system_record" }], "userFilters": [] },
+        "invalidInput": { "contractVersion": "1.0.0", "claim": " ", "dataType": "universal_truth", "context": "", "candidateReferences": [], "sourceWhitelist": ["only-this-site"] },
+        "validResult": { "contractVersion": "1.0.0", "verdict": "inconclusive", "formatCheck": "valid", "scope": "Foi possível verificar somente o formato do identificador.", "evidence": [], "verificationPlan": [{ "sourceKind": "authorized_system_record", "reason": "Requer acesso autorizado ao sistema de origem." }], "unresolved": ["A existência do registro não foi verificada."] },
+        "error": { "contractVersion": "1.0.0", "code": "access_not_authorized", "message": "O registro exige autorização que não foi fornecida.", "retryable": false }
+      }
+    },
+    {
+      "name": "validation.auditSearchResults",
+      "sideEffects": false,
+      "description": "Independently reopen search references and audit each required user filter without weakening criteria.",
+      "errorCodes": ["invalid_request", "source_unavailable", "access_not_authorized", "limit_exceeded", "unavailable", "internal_error"],
+      "inputSchema": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "$id": "https://sofiee-agent-validation.local/contracts/v1/audit-search.input.schema.json",
+        "type": "object", "additionalProperties": false,
+        "required": ["contractVersion", "originalRequest", "requiredFilters", "candidates"],
+        "properties": {
+          "contractVersion": { "const": "1.0.0" },
+          "originalRequest": { "type": "string", "minLength": 1, "maxLength": 6000 },
+          "requiredFilters": { "type": "array", "minItems": 1, "maxItems": 50, "items": { "type": "object", "additionalProperties": false, "required": ["id", "criterion"], "properties": { "id": { "type": "string", "minLength": 1, "maxLength": 100 }, "criterion": { "type": "string", "minLength": 1, "maxLength": 500 } } } },
+          "candidates": { "type": "array", "maxItems": 50, "items": { "type": "object", "additionalProperties": false, "required": ["reference", "searchExcerpt"], "properties": { "reference": { "type": "string", "minLength": 1, "maxLength": 2000 }, "searchExcerpt": { "type": "string", "maxLength": 800 } } } }
+        }
+      },
+      "resultSchema": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "$id": "https://sofiee-agent-validation.local/contracts/v1/audit-search.result.schema.json",
+        "type": "object", "additionalProperties": false,
+        "required": ["contractVersion", "audits"],
+        "properties": {
+          "contractVersion": { "const": "1.0.0" },
+          "audits": { "type": "array", "maxItems": 50, "items": { "type": "object", "additionalProperties": false, "required": ["reference", "reopened", "filterResults", "decision"], "properties": { "reference": { "type": "string", "minLength": 1, "maxLength": 2000 }, "reopened": { "type": "boolean" }, "filterResults": { "type": "array", "maxItems": 50, "items": { "type": "object", "additionalProperties": false, "required": ["filterId", "status", "evidence"], "properties": { "filterId": { "type": "string", "minLength": 1, "maxLength": 100 }, "status": { "enum": ["pass", "fail", "unverifiable"] }, "evidence": { "type": "string", "maxLength": 800 } } } }, "decision": { "enum": ["retain", "exclude", "inconclusive"] } } } }
+        }
+      },
+      "examples": {
+        "validInput": { "contractVersion": "1.0.0", "originalRequest": "Camisa branca tamanho M", "requiredFilters": [{ "id": "category", "criterion": "camisa" }, { "id": "color", "criterion": "branca" }, { "id": "size", "criterion": "M" }], "candidates": [{ "reference": "fixture://offer/item-1", "searchExcerpt": "Camisa categoria vestuário; cor branca; tamanho M." }] },
+        "invalidInput": { "contractVersion": "1.0.0", "originalRequest": "Camisa branca", "requiredFilters": [], "candidates": [], "dropUnmatchedFilters": true },
+        "validResult": { "contractVersion": "1.0.0", "audits": [{ "reference": "fixture://offer/item-1", "reopened": false, "filterResults": [{ "filterId": "category", "status": "unverifiable", "evidence": "A fixture não representa uma abertura real da fonte." }, { "filterId": "color", "status": "unverifiable", "evidence": "A fixture não representa uma abertura real da fonte." }, { "filterId": "size", "status": "unverifiable", "evidence": "A fixture não representa uma abertura real da fonte." }], "decision": "inconclusive" }] },
+        "error": { "contractVersion": "1.0.0", "code": "source_unavailable", "message": "A fonte não respondeu dentro do limite configurado.", "retryable": true }
+      }
+    }
+  ]
+}
