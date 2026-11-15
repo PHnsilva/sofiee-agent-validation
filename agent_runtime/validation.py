@@ -35,18 +35,19 @@ _PLANS: dict[str, list[tuple[str, str]]] = {
     "general_fact": [
         ("other", "Identificar e reabrir a fonte primária ou competente para o domínio; não há lista global de sites permitidos."),
     ],
-    "other": [
-        ("other", "Determinar pelo contexto o tipo de fonte competente e reabri-la independentemente."),
-    ],
 }
 
 
 def verify_claim(payload: dict[str, Any]) -> dict[str, Any]:
-    plan = [
+    ambiguous_type = payload["dataType"] == "other"
+    plan = [] if ambiguous_type else [
         {"sourceKind": source_kind, "reason": reason}
         for source_kind, reason in _PLANS[payload["dataType"]]
     ]
-    unresolved = ["Nenhum conector de fonte está configurado; referências candidatas não foram reabertas."]
+    if ambiguous_type:
+        unresolved = ["Tipo de dado ou contexto ambíguo; solicite esclarecimento antes de escolher uma fonte."]
+    else:
+        unresolved = ["Nenhum conector de fonte está configurado; referências candidatas não foram reabertas."]
     if payload["candidateReferences"]:
         unresolved.append("Referências candidatas não são prova e não foram reabertas independentemente.")
     if payload["dataType"] == "authorized_system_record":
@@ -58,7 +59,11 @@ def verify_claim(payload: dict[str, Any]) -> dict[str, Any]:
         "contractVersion": VERSION,
         "verdict": "inconclusive",
         "formatCheck": "not_checked",
-        "scope": "Afirmação e contexto recebidos; evidência factual e regra de formato permanecem sem verificação.",
+        "scope": (
+            "Tipo ou contexto insuficiente; nenhuma política de fonte foi escolhida."
+            if ambiguous_type
+            else "Afirmação e contexto recebidos; evidência factual e regra de formato permanecem sem verificação."
+        ),
         "evidence": [],
         "verificationPlan": plan,
         "unresolved": unresolved,

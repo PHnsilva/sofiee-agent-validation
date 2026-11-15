@@ -17,7 +17,7 @@ class ValidationRuntimeTests(unittest.TestCase):
             "technical_documentation": {"technical_documentation"},
             "authorized_system_record": {"authorized_system_record"},
             "general_fact": {"other"},
-            "other": {"other"},
+            "other": set(),
         }
         template = TOOLS["validation.verifyClaim"]["examples"]["validInput"]
         for data_type, kinds in expected.items():
@@ -27,6 +27,15 @@ class ValidationRuntimeTests(unittest.TestCase):
                 self.assertEqual(result["formatCheck"], "not_checked")
                 self.assertEqual({item["sourceKind"] for item in result["verificationPlan"]}, kinds)
                 self.assertEqual(result["evidence"], [])
+
+    def test_unknown_type_requests_clarification_without_selecting_a_source(self):
+        template = TOOLS["validation.verifyClaim"]["examples"]["validInput"]
+        result = execute("validation.verifyClaim", dict(template, dataType="other"))
+
+        self.assertEqual(result["verdict"], "inconclusive")
+        self.assertEqual(result["verificationPlan"], [])
+        self.assertTrue(any("solicite esclarecimento" in item.lower() for item in result["unresolved"]))
+        self.assertEqual(result["evidence"], [])
 
     def test_system_record_requires_authorized_source(self):
         template = TOOLS["validation.verifyClaim"]["examples"]["validInput"]
