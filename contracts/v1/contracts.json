@@ -18,7 +18,7 @@
     {
       "name": "validation.verifyClaim",
       "sideEffects": false,
-      "description": "Choose evidence strategy by data type and verify a claim; provided references are untrusted candidates, not proof.",
+      "description": "Choose evidence strategy by data type and verify a claim; optionally check consumer-declared field formats and relations. Candidate references are untrusted, not proof.",
       "errorCodes": ["invalid_request", "unsupported_data_type", "source_unavailable", "access_not_authorized", "limit_exceeded", "unavailable", "internal_error"],
       "inputSchema": {
         "$schema": "https://json-schema.org/draft/2020-12/schema",
@@ -31,7 +31,40 @@
           "dataType": { "enum": ["study_result", "official_indicator", "registry_record", "standard_or_norm", "offer_or_price", "technical_documentation", "authorized_system_record", "general_fact", "other"] },
           "context": { "type": "string", "maxLength": 6000 },
           "candidateReferences": { "type": "array", "maxItems": 30, "items": { "type": "object", "additionalProperties": false, "required": ["reference", "sourceKind"], "properties": { "reference": { "type": "string", "minLength": 1, "maxLength": 2000 }, "sourceKind": { "enum": ["study", "scholarly_repository", "official_indicator", "public_registry", "standards_body", "seller_or_offer", "technical_documentation", "authorized_system_record", "other"] } } } },
-          "userFilters": { "type": "array", "maxItems": 30, "items": { "type": "string", "minLength": 1, "maxLength": 500 } }
+          "userFilters": { "type": "array", "maxItems": 30, "items": { "type": "string", "minLength": 1, "maxLength": 500 } },
+          "fieldValidation": {
+            "type": "object", "additionalProperties": false,
+            "required": ["fields", "relations"],
+            "properties": {
+              "fields": {
+                "type": "array", "minItems": 1, "maxItems": 50,
+                "items": {
+                  "type": "object", "additionalProperties": false,
+                  "required": ["id", "type", "required"],
+                  "properties": {
+                    "id": { "type": "string", "pattern": "^[A-Za-z][A-Za-z0-9_.-]{0,63}$" },
+                    "type": { "enum": ["cpf", "date", "decimal", "quantity", "text"] },
+                    "required": { "type": "boolean" },
+                    "value": { "type": "string", "maxLength": 128 },
+                    "unit": { "type": "string", "minLength": 1, "maxLength": 32 },
+                    "allowedUnits": { "type": "array", "minItems": 1, "maxItems": 20, "items": { "type": "string", "minLength": 1, "maxLength": 32 } }
+                  }
+                }
+              },
+              "relations": {
+                "type": "array", "maxItems": 50,
+                "items": {
+                  "type": "object", "additionalProperties": false,
+                  "required": ["leftField", "operator", "rightField"],
+                  "properties": {
+                    "leftField": { "type": "string", "pattern": "^[A-Za-z][A-Za-z0-9_.-]{0,63}$" },
+                    "operator": { "enum": ["equals", "not_equals", "less_than", "less_or_equal", "greater_than", "greater_or_equal"] },
+                    "rightField": { "type": "string", "pattern": "^[A-Za-z][A-Za-z0-9_.-]{0,63}$" }
+                  }
+                }
+              }
+            }
+          }
         }
       },
       "resultSchema": {
@@ -46,13 +79,50 @@
           "scope": { "type": "string", "minLength": 1, "maxLength": 2000 },
           "evidence": { "type": "array", "maxItems": 50, "items": { "type": "object", "additionalProperties": false, "required": ["reference", "sourceKind", "checkedAt", "relation", "excerpt", "independentlyReopened"], "properties": { "reference": { "type": "string", "minLength": 1, "maxLength": 2000 }, "sourceKind": { "enum": ["study", "scholarly_repository", "official_indicator", "public_registry", "standards_body", "seller_or_offer", "technical_documentation", "authorized_system_record", "other"] }, "checkedAt": { "type": "string", "minLength": 1, "maxLength": 64 }, "relation": { "enum": ["supports", "contradicts", "context_only"] }, "excerpt": { "type": "string", "maxLength": 800 }, "independentlyReopened": { "type": "boolean" } } } },
           "verificationPlan": { "type": "array", "maxItems": 20, "items": { "type": "object", "additionalProperties": false, "required": ["sourceKind", "reason"], "properties": { "sourceKind": { "enum": ["study", "scholarly_repository", "official_indicator", "public_registry", "standards_body", "seller_or_offer", "technical_documentation", "authorized_system_record", "other"] }, "reason": { "type": "string", "minLength": 1, "maxLength": 500 } } } },
-          "unresolved": { "type": "array", "maxItems": 30, "items": { "type": "string", "maxLength": 500 } }
+          "unresolved": { "type": "array", "maxItems": 30, "items": { "type": "string", "maxLength": 500 } },
+          "fieldValidation": {
+            "type": "object", "additionalProperties": false,
+            "required": ["status", "syntaxStatus", "consistencyStatus", "veracityStatus", "fields", "relations", "notes"],
+            "properties": {
+              "status": { "enum": ["valid", "invalid", "inconclusive"] },
+              "syntaxStatus": { "enum": ["valid", "invalid", "incomplete"] },
+              "consistencyStatus": { "enum": ["consistent", "inconsistent", "inconclusive", "not_applicable"] },
+              "veracityStatus": { "const": "not_checked" },
+              "fields": {
+                "type": "array", "maxItems": 50,
+                "items": {
+                  "type": "object", "additionalProperties": false,
+                  "required": ["id", "status", "detail"],
+                  "properties": {
+                    "id": { "type": "string", "maxLength": 64 },
+                    "status": { "enum": ["valid", "invalid", "missing"] },
+                    "detail": { "type": "string", "minLength": 1, "maxLength": 500 }
+                  }
+                }
+              },
+              "relations": {
+                "type": "array", "maxItems": 50,
+                "items": {
+                  "type": "object", "additionalProperties": false,
+                  "required": ["leftField", "operator", "rightField", "status", "detail"],
+                  "properties": {
+                    "leftField": { "type": "string", "maxLength": 64 },
+                    "operator": { "enum": ["equals", "not_equals", "less_than", "less_or_equal", "greater_than", "greater_or_equal"] },
+                    "rightField": { "type": "string", "maxLength": 64 },
+                    "status": { "enum": ["pass", "fail", "not_evaluated"] },
+                    "detail": { "type": "string", "minLength": 1, "maxLength": 500 }
+                  }
+                }
+              },
+              "notes": { "type": "array", "maxItems": 10, "items": { "type": "string", "minLength": 1, "maxLength": 500 } }
+            }
+          }
         }
       },
       "examples": {
-        "validInput": { "contractVersion": "1.0.0", "claim": "O registro sintético contém o código A-17.", "dataType": "authorized_system_record", "context": "Fixture público sem dado pessoal.", "candidateReferences": [{ "reference": "fixture://registry/example-1", "sourceKind": "authorized_system_record" }], "userFilters": [] },
+        "validInput": { "contractVersion": "1.0.0", "claim": "A fixture declara um intervalo de datas válido.", "dataType": "authorized_system_record", "context": "Fixture sintética sem dado pessoal.", "candidateReferences": [{ "reference": "fixture://registry/example-1", "sourceKind": "authorized_system_record" }], "userFilters": [], "fieldValidation": { "fields": [{ "id": "startDate", "type": "date", "value": "2026-01-01", "required": true }, { "id": "endDate", "type": "date", "value": "2026-01-31", "required": true }], "relations": [{ "leftField": "startDate", "operator": "less_or_equal", "rightField": "endDate" }] } },
         "invalidInput": { "contractVersion": "1.0.0", "claim": " ", "dataType": "universal_truth", "context": "", "candidateReferences": [], "sourceWhitelist": ["only-this-site"] },
-        "validResult": { "contractVersion": "1.0.0", "verdict": "inconclusive", "formatCheck": "valid", "scope": "Foi possível verificar somente o formato do identificador.", "evidence": [], "verificationPlan": [{ "sourceKind": "authorized_system_record", "reason": "Requer acesso autorizado ao sistema de origem." }], "unresolved": ["A existência do registro não foi verificada."] },
+        "validResult": { "contractVersion": "1.0.0", "verdict": "inconclusive", "formatCheck": "valid", "scope": "Campos e relação declarados foram verificados estruturalmente; os fatos seguem sem verificação.", "evidence": [], "verificationPlan": [{ "sourceKind": "authorized_system_record", "reason": "Requer acesso autorizado ao sistema de origem." }], "unresolved": ["A existência do registro não foi verificada.", "A checagem estrutural não confirma veracidade."], "fieldValidation": { "status": "valid", "syntaxStatus": "valid", "consistencyStatus": "consistent", "veracityStatus": "not_checked", "fields": [{ "id": "startDate", "status": "valid", "detail": "Data ISO válida." }, { "id": "endDate", "status": "valid", "detail": "Data ISO válida." }], "relations": [{ "leftField": "startDate", "operator": "less_or_equal", "rightField": "endDate", "status": "pass", "detail": "A relação declarada pelo consumidor foi satisfeita." }], "notes": ["A consistência estrutural não verifica a veracidade dos fatos."] } },
         "error": { "contractVersion": "1.0.0", "code": "access_not_authorized", "message": "O registro exige autorização que não foi fornecida.", "retryable": false }
       }
     },
