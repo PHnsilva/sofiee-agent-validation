@@ -5,6 +5,7 @@ from __future__ import annotations
 from typing import Any
 
 from .contracts import CONTRACT, ContractViolation, error_result, validate_input, validate_result
+from .consumer_rules import inspect_consumer_rule_bundle
 
 
 VERSION = CONTRACT["contractVersion"]
@@ -102,6 +103,8 @@ def execute(tool_name: str, payload: dict[str, Any]) -> dict[str, Any]:
             return verify_claim(payload)
         if tool_name == "validation.auditSearchResults":
             return audit_search_results(payload)
+        if tool_name == "validation.inspectConsumerRuleBundle":
+            return inspect_consumer_rule_bundle(payload)
         raise ContractViolation("Unknown tool")
     except ContractViolation as exc:
         return error_result("invalid_request", str(exc))

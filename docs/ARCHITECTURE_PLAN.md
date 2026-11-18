@@ -8,6 +8,8 @@ Escolher dependências/modelos após inventário, licença, compatibilidade e me
 
 A implementação deve manter contratos de entradas/saídas/erros e limites de tempo/memória. Contexto, documentos e respostas de ferramentas/modelos são dados não confiáveis; não concedem acesso a disco/rede/contas ou execução. O consumidor mantém as decisões de autorização.
 
+Bundles de regras de consumidores carregam identificador, versão, origem e escopo declarados. A inspeção registra conflitos e fingerprints sem autenticar a origem, executar o conteúdo, persistir documentos ou ampliar permissões. Aplicar as regras a campos e relações é uma operação separada.
+
 Para integração, primeiro contrato e ferramenta implementada, depois cliente/servidor reais e cenários negativos. Teste entre componentes do próprio repo não prova comunicação com outro agente. Versão/retorno mock não comprova homologação.
 
 ## Dados, avaliação e treinamento
