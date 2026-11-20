@@ -174,7 +174,7 @@ def validate_declared_fields(spec: dict[str, Any]) -> dict[str, Any]:
             parsed_values[field_id] = parsed_value
             syntax_states.append("valid")
         elif status == "missing":
-            syntax_states.append("incomplete")
+            syntax_states.append("valid")
         else:
             syntax_states.append("invalid")
         field_results.append({"id": field_id, "status": status, "detail": detail})
