@@ -9,6 +9,7 @@ from typing import Any
 
 from .contracts import CONTRACT, ContractViolation, error_result, validate_input, validate_result
 from .consumer_rules import inspect_consumer_rule_bundle
+from .consumer_rule_application import apply_consumer_rules
 
 
 VERSION = CONTRACT["contractVersion"]
@@ -323,6 +324,8 @@ def execute(tool_name: str, payload: dict[str, Any]) -> dict[str, Any]:
             return audit_search_results(payload)
         if tool_name == "validation.inspectConsumerRuleBundle":
             return inspect_consumer_rule_bundle(payload)
+        if tool_name == "validation.applyConsumerRules":
+            return apply_consumer_rules(payload)
         raise ContractViolation("Unknown tool")
     except ContractViolation as exc:
         return error_result("invalid_request", str(exc))

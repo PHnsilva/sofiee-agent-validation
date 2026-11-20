@@ -7,6 +7,7 @@
 | `validation.verifyClaim` | Veredito, checagem de formato, evidências e lacunas | `confirmed`/`refuted` exigem evidência adequada e reaberta independentemente; sem evidência suficiente, usar `inconclusive` ou `not_checkable` |
 | `validation.auditSearchResults` | Auditoria por referência e por filtro obrigatório | Não aceita filtros removidos nem relaxa o pedido; fonte indisponível fica inconclusiva |
 | `validation.inspectConsumerRuleBundle` | Recebimento estrutural e fingerprints de documentos/regras versionados | Trata origem e conteúdo como declarações; conflitos ficam explícitos e autoridade permanece nula |
+| `validation.applyConsumerRules` | Aplicação limitada de regras do consumidor a valores recebidos | Executa somente a gramática declarativa documentada; conflito ou regra desconhecida não recebe precedência nem execução parcial |
 
 `validation.verifyClaim` também aceita, opcionalmente, `fieldValidation`: definições de campos e relações declaradas pelo sistema consumidor. A resposta separa `syntaxStatus`, `consistencyStatus` e `veracityStatus`; este último permanece `not_checked`. CPF válido por dígitos verificadores não comprova identidade. Datas usam `AAAA-MM-DD`; decimais usam ponto e não aceitam agrupamento ou expoente. Para quantidades, o consumidor declara as unidades permitidas; não há catálogo global nem conversão implícita. Relações suportam igualdade/desigualdade e ordenação de datas ou números do mesmo tipo. Valores obrigatórios ausentes são inválidos; opcionais ausentes ficam incompletos, e relações que não podem ser avaliadas deixam o resultado inconclusivo.
 
@@ -15,6 +16,8 @@ Os tipos de dado orientam a estratégia: estudos, indicadores oficiais, cadastro
 O fixture “camisa branca” mantém categoria e cor como filtros obrigatórios; se não puderem ser verificados, a decisão é inconclusiva, sem removê-los. O fixture usa URI sintética e não demonstra acesso à fonte.
 
 O contrato de regras do consumidor está descrito em [CONSUMER_RULE_BUNDLE.md](../../docs/CONSUMER_RULE_BUNDLE.md). Inspecionar o bundle confirma somente sua estrutura e as declarações recebidas; não confirma a origem, não executa regras e não amplia permissões.
+
+`validation.applyConsumerRules` consome uma resposta de inspeção e valores de campos em uma chamada separada. A resposta identifica campo, regra e resultado. Regras fora do escopo, desconhecidas ou não comparáveis permanecem sem avaliação; números não são convertidos entre unidades e conteúdo não é interpretado como código.
 
 ## Exemplos e verificação
 
