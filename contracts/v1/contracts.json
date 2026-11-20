@@ -160,5 +160,46 @@
         "error": { "contractVersion": "1.0.0", "code": "source_unavailable", "message": "A fonte não respondeu dentro do limite configurado.", "retryable": true }
       }
     }
+,
+    {
+      "name": "validation.inspectConsumerRuleBundle",
+      "sideEffects": false,
+      "description": "Inspect consumer-declared versioned rules and documents without verifying origin, executing content, or granting authority.",
+      "errorCodes": ["invalid_request", "limit_exceeded", "unavailable", "internal_error"],
+      "inputSchema": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "$id": "https://sofiee-agent-validation.local/contracts/v1/consumer-rule-bundle.input.schema.json",
+        "type": "object", "additionalProperties": false,
+        "required": ["contractVersion", "bundle", "documents", "rules"],
+        "properties": {
+          "contractVersion": { "const": "1.0.0" },
+          "bundle": { "type": "object", "additionalProperties": false, "required": ["id", "version", "origin", "scope"], "properties": { "id": { "type": "string", "minLength": 1, "maxLength": 100 }, "version": { "type": "string", "minLength": 1, "maxLength": 64 }, "origin": { "type": "string", "minLength": 1, "maxLength": 500 }, "scope": { "type": "string", "minLength": 1, "maxLength": 200 } } },
+          "documents": { "type": "array", "minItems": 1, "maxItems": 5, "items": { "type": "object", "additionalProperties": false, "required": ["id", "version", "origin", "scope", "content"], "properties": { "id": { "type": "string", "minLength": 1, "maxLength": 100 }, "version": { "type": "string", "minLength": 1, "maxLength": 64 }, "origin": { "type": "string", "minLength": 1, "maxLength": 500 }, "scope": { "type": "string", "minLength": 1, "maxLength": 200 }, "content": { "type": "string", "minLength": 1, "maxLength": 4000 } } } },
+          "rules": { "type": "array", "minItems": 1, "maxItems": 20, "items": { "type": "object", "additionalProperties": false, "required": ["id", "version", "origin", "scope", "definition"], "properties": { "id": { "type": "string", "minLength": 1, "maxLength": 100 }, "version": { "type": "string", "minLength": 1, "maxLength": 64 }, "origin": { "type": "string", "minLength": 1, "maxLength": 500 }, "scope": { "type": "string", "minLength": 1, "maxLength": 200 }, "definition": { "type": "string", "minLength": 1, "maxLength": 1000 } } } }
+        }
+      },
+      "resultSchema": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "$id": "https://sofiee-agent-validation.local/contracts/v1/consumer-rule-bundle.result.schema.json",
+        "type": "object", "additionalProperties": false,
+        "required": ["contractVersion", "status", "bundle", "documents", "rules", "conflicts", "provenance", "authority"],
+        "properties": {
+          "contractVersion": { "const": "1.0.0" },
+          "status": { "enum": ["received_untrusted", "conflict"] },
+          "bundle": { "type": "object", "additionalProperties": false, "required": ["id", "version", "origin", "scope"], "properties": { "id": { "type": "string", "minLength": 1, "maxLength": 100 }, "version": { "type": "string", "minLength": 1, "maxLength": 64 }, "origin": { "type": "string", "minLength": 1, "maxLength": 500 }, "scope": { "type": "string", "minLength": 1, "maxLength": 200 } } },
+          "documents": { "type": "array", "maxItems": 5, "items": { "type": "object", "additionalProperties": false, "required": ["id", "version", "origin", "scope", "contentDigest"], "properties": { "id": { "type": "string", "minLength": 1, "maxLength": 100 }, "version": { "type": "string", "minLength": 1, "maxLength": 64 }, "origin": { "type": "string", "minLength": 1, "maxLength": 500 }, "scope": { "type": "string", "minLength": 1, "maxLength": 200 }, "contentDigest": { "type": "string", "pattern": "^[0-9a-f]{64}$" } } } },
+          "rules": { "type": "array", "maxItems": 20, "items": { "type": "object", "additionalProperties": false, "required": ["id", "version", "origin", "scope", "definition", "definitionDigest"], "properties": { "id": { "type": "string", "minLength": 1, "maxLength": 100 }, "version": { "type": "string", "minLength": 1, "maxLength": 64 }, "origin": { "type": "string", "minLength": 1, "maxLength": 500 }, "scope": { "type": "string", "minLength": 1, "maxLength": 200 }, "definition": { "type": "string", "minLength": 1, "maxLength": 1000 }, "definitionDigest": { "type": "string", "pattern": "^[0-9a-f]{64}$" } } } },
+          "conflicts": { "type": "array", "maxItems": 25, "items": { "type": "object", "additionalProperties": false, "required": ["kind", "id", "version", "scope", "reason"], "properties": { "kind": { "enum": ["document", "rule"] }, "id": { "type": "string", "minLength": 1, "maxLength": 100 }, "version": { "type": "string", "minLength": 1, "maxLength": 64 }, "scope": { "type": "string", "minLength": 1, "maxLength": 200 }, "reason": { "type": "string", "minLength": 1, "maxLength": 200 } } } },
+          "provenance": { "const": "declared_only" },
+          "authority": { "const": "none" }
+        }
+      },
+      "examples": {
+        "validInput": { "contractVersion": "1.0.0", "bundle": { "id": "study-form", "version": "1.0.0", "origin": "https://consumer.example.invalid/specs", "scope": "study_result" }, "documents": [{ "id": "study-format", "version": "1.0.0", "origin": "https://consumer.example.invalid/specs/format", "scope": "study_result", "content": "Synthetic format specification." }], "rules": [{ "id": "sample-size-required", "version": "1.0.0", "origin": "https://consumer.example.invalid/rules/sample-size", "scope": "study_result", "definition": "field.sampleSize.required=true" }] },
+        "invalidInput": { "contractVersion": "1.0.0", "bundle": { "id": "study-form", "version": "1.0.0", "origin": "https://consumer.example.invalid/specs", "scope": "study_result" }, "documents": [{ "id": "study-format", "version": "1.0.0", "origin": "https://consumer.example.invalid/specs/format", "scope": "study_result", "content": "Synthetic format specification." }], "rules": [{ "id": "sample-size-required", "version": "1.0.0", "origin": "https://consumer.example.invalid/rules/sample-size", "scope": "study_result", "definition": "field.sampleSize.required=true" }], "permissions": ["write"] },
+        "validResult": { "contractVersion": "1.0.0", "status": "received_untrusted", "bundle": { "id": "study-form", "version": "1.0.0", "origin": "https://consumer.example.invalid/specs", "scope": "study_result" }, "documents": [{ "id": "study-format", "version": "1.0.0", "origin": "https://consumer.example.invalid/specs/format", "scope": "study_result", "contentDigest": "b9621b57e0bac3291985a972d0a1d0fc900bc709fb1bd91fa6fb5e272b7921fe" }], "rules": [{ "id": "sample-size-required", "version": "1.0.0", "origin": "https://consumer.example.invalid/rules/sample-size", "scope": "study_result", "definition": "field.sampleSize.required=true", "definitionDigest": "95496a504a44fd7d50d4db29450b3b18073d066f1053f3e9062cd8a4c751cb1a" }], "conflicts": [], "provenance": "declared_only", "authority": "none" },
+        "error": { "contractVersion": "1.0.0", "code": "invalid_request", "message": "A estrutura declarada do pacote de regras é inválida.", "retryable": false }
+      }
+    }
   ]
 }

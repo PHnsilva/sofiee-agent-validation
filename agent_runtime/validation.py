@@ -8,6 +8,7 @@ from decimal import Decimal, InvalidOperation
 from typing import Any
 
 from .contracts import CONTRACT, ContractViolation, error_result, validate_input, validate_result
+from .consumer_rules import inspect_consumer_rule_bundle
 
 
 VERSION = CONTRACT["contractVersion"]
@@ -37,9 +38,6 @@ _PLANS: dict[str, list[tuple[str, str]]] = {
     ],
     "general_fact": [
         ("other", "Identificar e reabrir a fonte primária ou competente para o domínio; não há lista global de sites permitidos."),
-    ],
-    "other": [
-        ("other", "Determinar pelo contexto o tipo de fonte competente e reabri-la independentemente."),
     ],
 }
 
@@ -248,11 +246,15 @@ def validate_declared_fields(spec: dict[str, Any]) -> dict[str, Any]:
 
 
 def verify_claim(payload: dict[str, Any]) -> dict[str, Any]:
-    plan = [
+    ambiguous_type = payload["dataType"] == "other"
+    plan = [] if ambiguous_type else [
         {"sourceKind": source_kind, "reason": reason}
         for source_kind, reason in _PLANS[payload["dataType"]]
     ]
-    unresolved = ["Nenhum conector de fonte está configurado; referências candidatas não foram reabertas."]
+    if ambiguous_type:
+        unresolved = ["Tipo de dado ou contexto ambíguo; solicite esclarecimento antes de escolher uma fonte."]
+    else:
+        unresolved = ["Nenhum conector de fonte está configurado; referências candidatas não foram reabertas."]
     if payload["candidateReferences"]:
         unresolved.append("Referências candidatas não são prova e não foram reabertas independentemente.")
     if payload["dataType"] == "authorized_system_record":
@@ -319,6 +321,8 @@ def execute(tool_name: str, payload: dict[str, Any]) -> dict[str, Any]:
             return verify_claim(payload)
         if tool_name == "validation.auditSearchResults":
             return audit_search_results(payload)
+        if tool_name == "validation.inspectConsumerRuleBundle":
+            return inspect_consumer_rule_bundle(payload)
         raise ContractViolation("Unknown tool")
     except ContractViolation as exc:
         return error_result("invalid_request", str(exc))
