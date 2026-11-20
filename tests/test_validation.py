@@ -156,7 +156,7 @@ class ValidationRuntimeTests(unittest.TestCase):
         )
         self.assertEqual(unsupported["fieldValidation"]["syntaxStatus"], "invalid")
 
-    def test_missing_values_are_incomplete_unless_consumer_marks_them_required(self):
+    def test_missing_values_follow_consumer_requiredness(self):
         fields = [
             {"id": "start", "type": "date", "value": "2026-01-01", "required": True},
             {"id": "end", "type": "date", "required": False},
@@ -164,8 +164,17 @@ class ValidationRuntimeTests(unittest.TestCase):
         relation = {"leftField": "start", "operator": "less_or_equal", "rightField": "end"}
         optional_missing = execute("validation.verifyClaim", self._field_request(fields, [relation]))
         self.assertEqual(optional_missing["fieldValidation"]["status"], "inconclusive")
-        self.assertEqual(optional_missing["fieldValidation"]["syntaxStatus"], "incomplete")
+        self.assertEqual(optional_missing["fieldValidation"]["syntaxStatus"], "valid")
+        self.assertEqual(optional_missing["fieldValidation"]["fields"][1]["status"], "missing")
         self.assertEqual(optional_missing["fieldValidation"]["relations"][0]["status"], "not_evaluated")
+
+        optional_without_relation = execute(
+            "validation.verifyClaim",
+            self._field_request([fields[1]]),
+        )
+        self.assertEqual(optional_without_relation["fieldValidation"]["status"], "valid")
+        self.assertEqual(optional_without_relation["fieldValidation"]["syntaxStatus"], "valid")
+        self.assertEqual(optional_without_relation["fieldValidation"]["fields"][0]["status"], "missing")
 
         required_missing = execute(
             "validation.verifyClaim",
