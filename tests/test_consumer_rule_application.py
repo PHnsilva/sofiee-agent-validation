@@ -96,6 +96,18 @@ class ConsumerRuleApplicationTests(unittest.TestCase):
         self.assertEqual(enumeration["status"], "invalid")
         self.assertEqual(enumeration["ruleResults"][0]["status"], "fail")
 
+    def test_enum_text_cannot_change_its_declared_field_target(self):
+        result = execute(
+            "validation.applyConsumerRules",
+            self._payload(
+                ['field.status.enum=["a.required=true"]'],
+                [{"id": "status", "type": "text", "value": "a.required=true"}],
+            ),
+        )
+        self.assertEqual(result["status"], "valid")
+        self.assertEqual(result["ruleResults"][0]["target"], "field.status.enum")
+        self.assertEqual(result["ruleResults"][0]["status"], "pass")
+
     def test_cross_field_failure_and_missing_value_are_not_conflated(self):
         failed = execute(
             "validation.applyConsumerRules",

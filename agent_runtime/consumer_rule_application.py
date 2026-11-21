@@ -12,7 +12,7 @@ from typing import Any
 from .contracts import ContractViolation
 
 
-_FIELD_RULE = re.compile(r"field\.(.+)\.(required|minimum|maximum|enum)=(.+)\Z")
+_FIELD_RULE = re.compile(r"field\.([A-Za-z][A-Za-z0-9_.-]{0,63})\.(required|minimum|maximum|enum)=(.+)\Z")
 _DECIMAL = re.compile(r"-?(?:0|[1-9][0-9]*)(?:\.[0-9]+)?\Z")
 _DATE = re.compile(r"[0-9]{4}-[0-9]{2}-[0-9]{2}\Z")
 _ORDER = {"less_than", "less_or_equal", "greater_than", "greater_or_equal"}
