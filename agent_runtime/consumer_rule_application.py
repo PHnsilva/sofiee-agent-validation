@@ -162,29 +162,31 @@ def _evaluate(payload: dict[str, Any], parsed_rules: list[dict[str, Any]]) -> di
     from .validation import _compare_relation, _parse_field_value
 
     field_specs = {field["id"]: field for field in payload["fields"]}
-    rules_by_field: dict[str, dict[str, dict[str, Any]]] = {}
+    rules_by_field: dict[str, dict[str, list[dict[str, Any]]]] = {}
     relation_rules = []
     for rule in parsed_rules:
         if rule["kind"] == "relation":
             relation_rules.append(rule)
         else:
-            rules_by_field.setdefault(rule["fieldId"], {})[rule["property"]] = rule
+            rules_by_field.setdefault(rule["fieldId"], {}).setdefault(rule["property"], []).append(rule)
 
     for field_id, field_rules in rules_by_field.items():
-        if "minimum" not in field_rules or "maximum" not in field_rules:
+        minimum_rules = field_rules.get("minimum", [])
+        maximum_rules = field_rules.get("maximum", [])
+        if not minimum_rules or not maximum_rules:
             continue
         field = field_specs[field_id]
         try:
-            minimum = _parse_bound(field, field_rules["minimum"]["value"])
-            maximum = _parse_bound(field, field_rules["maximum"]["value"])
+            minimum = _parse_bound(field, minimum_rules[0]["value"])
+            maximum = _parse_bound(field, maximum_rules[0]["value"])
         except ContractViolation:
             continue
         if field["type"] == "quantity" and minimum[1] != maximum[1]:
             continue
         if minimum > maximum:
             rule_results = [
-                {"ruleId": field_rules[name]["ruleId"], "target": field_rules[name]["target"], "status": "conflict", "detail": "Intervalo declarado não contém valores; nenhuma precedência foi escolhida."}
-                for name in ("minimum", "maximum")
+                {"ruleId": rule["ruleId"], "target": rule["target"], "status": "conflict", "detail": "Intervalo declarado não contém valores; nenhuma precedência foi escolhida."}
+                for rule in minimum_rules + maximum_rules
             ]
             return {
                 "contractVersion": "1.0.0", "status": "conflict", "consistencyStatus": "inconclusive", "veracityStatus": "not_checked",
@@ -201,19 +203,19 @@ def _evaluate(payload: dict[str, Any], parsed_rules: list[dict[str, Any]]) -> di
 
     for field_id, field in field_specs.items():
         field_rules = rules_by_field.get(field_id, {})
-        required_rule = field_rules.get("required")
-        required = required_rule["value"] if required_rule else False
+        required_rules = field_rules.get("required", [])
+        required = required_rules[0]["value"] if required_rules else False
         parse_spec = dict(field, required=required)
         parsed, parse_status, parse_detail = _parse_field_value(parse_spec)
         has_value = "value" in field
         if parse_status == "valid":
             parsed_values[field_id] = parsed
-        elif parse_status == "missing" and has_value is False and required_rule is None:
+        elif parse_status == "missing" and has_value is False and not required_rules:
             unresolved.append(f"Campo {field_id}: ausência sem regra de obrigatoriedade declarada.")
 
         field_failures = []
-        field_inconclusive = parse_status == "missing" and required_rule is None
-        if required_rule:
+        field_inconclusive = parse_status == "missing" and not required_rules
+        for required_rule in required_rules:
             required_status = "fail" if not has_value and required else "pass"
             required_detail = "Campo obrigatório ausente conforme regra do consumidor." if required_status == "fail" else "Obrigatoriedade aplicada conforme regra do consumidor."
             if parse_status == "missing" and not required:
@@ -223,45 +225,54 @@ def _evaluate(payload: dict[str, Any], parsed_rules: list[dict[str, Any]]) -> di
                 field_failures.append(required_rule["ruleId"])
 
         if parse_status == "invalid":
-            field_failures.extend(rule["ruleId"] for key, rule in field_rules.items() if key in {"minimum", "maximum", "enum"})
+            field_failures.extend(
+                rule["ruleId"]
+                for key, rules in field_rules.items()
+                if key in {"minimum", "maximum", "enum"}
+                for rule in rules
+            )
             if not field_failures:
                 field_inconclusive = False
 
         for property_name in ("minimum", "maximum", "enum"):
-            rule = field_rules.get(property_name)
-            if not rule:
-                continue
-            if parse_status == "missing":
-                status = "pass" if required_rule and not required else "not_evaluated"
-                detail = "Campo opcional ausente; restrição não se aplica." if status == "pass" else "Campo ausente; restrição não pôde ser avaliada."
-            elif parse_status != "valid":
-                status = "not_evaluated"
-                detail = "Valor inválido; restrição não pôde ser avaliada."
-            else:
-                try:
-                    if property_name == "enum":
-                        allowed = [_parse_enum_value(field, item) for item in rule["value"]]
-                        passed = parsed in allowed
-                        detail = "Valor pertence à enumeração declarada." if passed else "Valor não pertence à enumeração declarada."
-                    else:
-                        bound = _parse_bound(field, rule["value"])
-                        if field["type"] == "quantity" and parsed[1] != bound[1]:
-                            status = "not_evaluated"
-                            detail = "Unidade diferente da regra declarada; não houve conversão."
-                            rule_results.append({"ruleId": rule["ruleId"], "target": rule["target"], "status": status, "detail": detail})
-                            field_inconclusive = True
-                            continue
-                        passed = parsed >= bound if property_name == "minimum" else parsed <= bound
-                        detail = "Valor está dentro do limite declarado." if passed else "Valor excede o limite declarado."
-                    status = "pass" if passed else "fail"
-                except (ContractViolation, InvalidOperation, TypeError):
+            for rule in field_rules.get(property_name, []):
+                if parse_status == "missing":
+                    status = "pass" if required_rules and not required else "not_evaluated"
+                    detail = "Campo opcional ausente; restrição não se aplica." if status == "pass" else "Campo ausente; restrição não pôde ser avaliada."
+                elif parse_status != "valid":
                     status = "not_evaluated"
-                    detail = "Tipo de campo e regra não podem ser comparados com segurança."
-            rule_results.append({"ruleId": rule["ruleId"], "target": rule["target"], "status": status, "detail": detail})
-            if status == "fail":
-                field_failures.append(rule["ruleId"])
-            elif status == "not_evaluated":
-                field_inconclusive = True
+                    detail = "Valor inválido; restrição não pôde ser avaliada."
+                else:
+                    try:
+                        if property_name == "enum":
+                            allowed = [_parse_enum_value(field, item) for item in rule["value"]]
+                            passed = parsed in allowed
+                            if field["type"] == "quantity" and not passed and any(item[1] != parsed[1] for item in allowed):
+                                status = "not_evaluated"
+                                detail = "A enumeração inclui outra unidade; não houve conversão para decidir equivalência."
+                                field_inconclusive = True
+                                rule_results.append({"ruleId": rule["ruleId"], "target": rule["target"], "status": status, "detail": detail})
+                                continue
+                            detail = "Valor pertence à enumeração declarada." if passed else "Valor não pertence à enumeração declarada."
+                        else:
+                            bound = _parse_bound(field, rule["value"])
+                            if field["type"] == "quantity" and parsed[1] != bound[1]:
+                                status = "not_evaluated"
+                                detail = "Unidade diferente da regra declarada; não houve conversão."
+                                rule_results.append({"ruleId": rule["ruleId"], "target": rule["target"], "status": status, "detail": detail})
+                                field_inconclusive = True
+                                continue
+                            passed = parsed >= bound if property_name == "minimum" else parsed <= bound
+                            detail = "Valor está dentro do limite declarado." if passed else "Valor excede o limite declarado."
+                        status = "pass" if passed else "fail"
+                    except (ContractViolation, InvalidOperation, TypeError):
+                        status = "not_evaluated"
+                        detail = "Tipo de campo e regra não podem ser comparados com segurança."
+                rule_results.append({"ruleId": rule["ruleId"], "target": rule["target"], "status": status, "detail": detail})
+                if status == "fail":
+                    field_failures.append(rule["ruleId"])
+                elif status == "not_evaluated":
+                    field_inconclusive = True
 
         if field_failures or parse_status == "invalid":
             state = "invalid"
@@ -344,6 +355,13 @@ def apply_consumer_rules(payload: dict[str, Any]) -> dict[str, Any]:
     fields = {field["id"]: field for field in payload["fields"]}
     if len(fields) != len(payload["fields"]):
         raise ContractViolation("Field identifiers must be unique")
+    for field in payload["fields"]:
+        if field["type"] == "quantity":
+            allowed_units = field.get("allowedUnits")
+            if "unit" not in field or not allowed_units or len(set(allowed_units)) != len(allowed_units):
+                raise ContractViolation("Quantity fields require a unit and unique consumer-declared allowedUnits")
+        elif "unit" in field or "allowedUnits" in field:
+            raise ContractViolation("Units are only valid for quantity fields")
     parsed_rules, conflicts = _parse_rules(receipt, fields)
     if conflicts:
         states = {item["status"] for item in conflicts}

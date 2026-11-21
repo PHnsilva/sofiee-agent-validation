@@ -173,6 +173,45 @@ class ConsumerRuleApplicationTests(unittest.TestCase):
         self.assertEqual(result["ruleResults"][0]["status"], "not_evaluated")
         self.assertIn("não houve conversão", result["ruleResults"][0]["detail"])
 
+    def test_missing_quantity_metadata_is_reported_as_invalid_request(self):
+        result = execute(
+            "validation.applyConsumerRules",
+            self._payload(
+                ["field.weight.required=true"],
+                [{"id": "weight", "type": "quantity", "value": "1"}],
+            ),
+        )
+
+        self.assertEqual(result["code"], "invalid_request")
+        self.assertIn("allowedUnits", result["message"])
+
+    def test_quantity_enum_with_cross_unit_candidate_is_inconclusive(self):
+        result = execute(
+            "validation.applyConsumerRules",
+            self._payload(
+                ['field.weight.enum=["1 kg"]'],
+                [{"id": "weight", "type": "quantity", "value": "1000", "unit": "g", "allowedUnits": ["kg", "g"]}],
+            ),
+        )
+
+        self.assertEqual(result["status"], "inconclusive")
+        self.assertEqual(result["ruleResults"][0]["status"], "not_evaluated")
+        self.assertIn("não houve conversão", result["ruleResults"][0]["detail"])
+
+    def test_identical_constraints_keep_a_result_for_every_rule(self):
+        result = execute(
+            "validation.applyConsumerRules",
+            self._payload(
+                ["field.score.minimum=1", "field.score.minimum=1"],
+                [{"id": "score", "type": "decimal", "value": "0"}],
+            ),
+        )
+
+        failures = [item for item in result["ruleResults"] if item["target"] == "field.score.minimum"]
+        self.assertEqual(result["status"], "invalid")
+        self.assertEqual([item["ruleId"] for item in failures], ["rule-1", "rule-2"])
+        self.assertEqual({item["status"] for item in failures}, {"fail"})
+
 
 if __name__ == "__main__":
     unittest.main()
