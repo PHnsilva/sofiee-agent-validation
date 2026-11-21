@@ -64,3 +64,7 @@ Comandos locais:
     C:\SDKs\Python313\python.exe scripts\validate_contracts.py
     C:\SDKs\Python313\python.exe scripts\check_environment.py
     C:\SDKs\Python313\python.exe scripts\measure_runtime.py
+
+## Coordenação interna de tarefas
+
+O runtime também aceita uma composição local pelo envelope `{"task": <contrato v1>}` na entrada de `scripts/run_runtime.py`. O grafo sequencial pode combinar verificação por tipo, auditoria de referências e regras declaradas pelo consumidor; schemas de tarefa e saída ficam em `contracts/v1/task*.schema.json`. Sem conector de fonte independente, a saída permanece inconclusiva e informa a dependência. Consulte [coordenação interna](docs/INTERNAL_COORDINATION.md) para limites, retomada e exemplos.

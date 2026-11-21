@@ -10,6 +10,8 @@ A implementação deve manter contratos de entradas/saídas/erros e limites de t
 
 Bundles de regras de consumidores carregam identificador, versão, origem e escopo declarados. A inspeção registra conflitos e fingerprints sem autenticar a origem, executar o conteúdo, persistir documentos ou ampliar permissões. Aplicar as regras a campos e relações é uma operação separada.
 
+A coordenação local recebe um grafo explícito de ferramentas de domínio, valida dependências e contratos de saída e opera em sequência. Resultados só passam entre etapas por referência declarada a uma etapa anterior. Não há busca de fontes, sistema consumidor conectado, modelo, processo de subagente ou persistência. Confira o contrato operacional em [INTERNAL_COORDINATION.md](INTERNAL_COORDINATION.md).
+
 Para integração, primeiro contrato e ferramenta implementada, depois cliente/servidor reais e cenários negativos. Teste entre componentes do próprio repo não prova comunicação com outro agente. Versão/retorno mock não comprova homologação.
 
 ## Dados, avaliação e treinamento

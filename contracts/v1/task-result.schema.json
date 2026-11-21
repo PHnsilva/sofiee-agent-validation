@@ -1,0 +1,82 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://sofiee-agent-validation.local/contracts/v1/task.result.schema.json",
+  "title": "Validação — resultado de tarefa interna v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["contractVersion", "taskId", "objective", "status", "verdict", "stages", "missingDependencies", "limits", "delegation", "checkpoint"],
+  "properties": {
+    "contractVersion": { "const": "1.0.0" },
+    "taskId": { "type": "string", "pattern": "^[0-9a-fA-F-]{36}$" },
+    "objective": { "type": "string", "minLength": 5, "maxLength": 4000 },
+    "status": { "enum": ["completed", "partial", "failed", "cancelled", "timed_out"] },
+    "verdict": { "enum": ["confirmed", "refuted", "inconclusive", "not_checkable"] },
+    "stages": {
+      "type": "array",
+      "maxItems": 8,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["id", "tool", "status", "mode", "attempts"],
+        "properties": {
+          "id": { "type": "string", "pattern": "^[A-Za-z][A-Za-z0-9_-]{0,39}$" },
+          "tool": { "enum": ["validation.verifyClaim", "validation.auditSearchResults", "validation.inspectConsumerRuleBundle", "validation.applyConsumerRules"] },
+          "status": { "enum": ["completed", "failed", "blocked", "cancelled", "timed_out"] },
+          "mode": { "enum": ["deterministic", "simulated", "checkpoint_untrusted"] },
+          "attempts": { "type": "integer", "minimum": 0, "maximum": 2 },
+          "result": { "type": "object" },
+          "error": { "type": "object" },
+          "blockedBy": { "type": "array", "maxItems": 7, "items": { "type": "string", "pattern": "^[A-Za-z][A-Za-z0-9_-]{0,39}$" } }
+        }
+      }
+    },
+    "missingDependencies": { "type": "array", "maxItems": 8, "items": { "type": "string", "minLength": 1, "maxLength": 300 } },
+    "limits": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["maxSteps", "timeoutMs", "maxAttempts", "maxConcurrency", "maxDelegationDepth"],
+      "properties": {
+        "maxSteps": { "type": "integer", "minimum": 1, "maximum": 8 },
+        "timeoutMs": { "type": "integer", "minimum": 1, "maximum": 60000 },
+        "maxAttempts": { "type": "integer", "minimum": 1, "maximum": 2 },
+        "maxConcurrency": { "const": 1 },
+        "maxDelegationDepth": { "const": 0 }
+      }
+    },
+    "delegation": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["depthUsed", "subagents", "reason"],
+      "properties": {
+        "depthUsed": { "const": 0 },
+        "subagents": { "const": 0 },
+        "reason": { "type": "string", "minLength": 1, "maxLength": 200 }
+      }
+    },
+    "checkpoint": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["contractVersion", "taskId", "objectiveDigest", "completedStages"],
+      "properties": {
+        "contractVersion": { "const": "1.0.0" },
+        "taskId": { "type": "string", "pattern": "^[0-9a-fA-F-]{36}$" },
+        "objectiveDigest": { "type": "string", "pattern": "^[0-9a-f]{64}$" },
+        "completedStages": {
+          "type": "array",
+          "maxItems": 8,
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["id", "tool", "stageDigest", "result"],
+            "properties": {
+              "id": { "type": "string", "pattern": "^[A-Za-z][A-Za-z0-9_-]{0,39}$" },
+              "tool": { "enum": ["validation.verifyClaim", "validation.auditSearchResults", "validation.inspectConsumerRuleBundle", "validation.applyConsumerRules"] },
+              "stageDigest": { "type": "string", "pattern": "^[0-9a-f]{64}$" },
+              "result": { "type": "object" }
+            }
+          }
+        }
+      }
+    }
+  }
+}
