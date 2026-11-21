@@ -9,6 +9,25 @@ from agent_runtime.validation import execute
 
 
 class ValidationRuntimeTests(unittest.TestCase):
+    def _claim_template(self):
+        request = dict(TOOLS["validation.verifyClaim"]["examples"]["validInput"])
+        request.pop("fieldValidation", None)
+        return request
+
+    def _synthetic_cpf(self, prefix="835027416"):
+        digits = [int(char) for char in prefix]
+        first = (sum(digit * weight for digit, weight in zip(digits, range(10, 1, -1))) * 10) % 11
+        first = 0 if first == 10 else first
+        digits.append(first)
+        second = (sum(digit * weight for digit, weight in zip(digits, range(11, 1, -1))) * 10) % 11
+        second = 0 if second == 10 else second
+        return prefix + str(first) + str(second)
+
+    def _field_request(self, fields, relations=()):
+        request = self._claim_template()
+        request["fieldValidation"] = {"fields": fields, "relations": list(relations)}
+        return request
+
     def test_plans_match_claim_data_type_without_claiming_a_verdict(self):
         expected = {
             "study_result": {"study", "scholarly_repository"},
@@ -21,7 +40,7 @@ class ValidationRuntimeTests(unittest.TestCase):
             "general_fact": {"other"},
             "other": set(),
         }
-        template = TOOLS["validation.verifyClaim"]["examples"]["validInput"]
+        template = self._claim_template()
         for data_type, kinds in expected.items():
             with self.subTest(data_type=data_type):
                 result = execute("validation.verifyClaim", dict(template, dataType=data_type, candidateReferences=[]))
@@ -40,7 +59,7 @@ class ValidationRuntimeTests(unittest.TestCase):
         self.assertEqual(result["evidence"], [])
 
     def test_system_record_requires_authorized_source(self):
-        template = TOOLS["validation.verifyClaim"]["examples"]["validInput"]
+        template = self._claim_template()
         result = execute(
             "validation.verifyClaim",
             dict(template, dataType="authorized_system_record", candidateReferences=[]),
@@ -49,7 +68,7 @@ class ValidationRuntimeTests(unittest.TestCase):
         self.assertEqual(result["verdict"], "inconclusive")
 
     def test_candidates_are_never_treated_as_reopened_evidence(self):
-        template = TOOLS["validation.verifyClaim"]["examples"]["validInput"]
+        template = self._claim_template()
         result = execute("validation.verifyClaim", dict(template, userFilters=["categoria=camisa", "cor=branca"]))
         self.assertEqual(result["evidence"], [])
         self.assertEqual(result["verdict"], "inconclusive")
@@ -157,6 +176,170 @@ class ValidationRuntimeTests(unittest.TestCase):
         invalid = dict(TOOLS["validation.verifyClaim"]["examples"]["invalidInput"])
         result = execute("validation.verifyClaim", invalid)
         self.assertEqual(result["code"], "invalid_request")
+
+    def test_cpf_check_digits_do_not_claim_identity(self):
+        cpf_value = self._synthetic_cpf()
+        request = self._field_request([{"id": "identifier", "type": "cpf", "value": cpf_value, "required": True}])
+        result = execute("validation.verifyClaim", request)
+        self.assertEqual(result["verdict"], "inconclusive")
+        self.assertEqual(result["formatCheck"], "valid")
+        self.assertEqual(result["fieldValidation"]["status"], "valid")
+        self.assertEqual(result["fieldValidation"]["veracityStatus"], "not_checked")
+        self.assertEqual(result["fieldValidation"]["fields"][0]["status"], "valid")
+        self.assertTrue(any("não confirmam identidade" in note for note in result["unresolved"]))
+        self.assertEqual(result["evidence"], [])
+        self.assertNotIn(cpf_value, str(result))
+
+        invalid_cpf = cpf_value[:-1] + ("0" if cpf_value[-1] != "0" else "1")
+        invalid = execute(
+            "validation.verifyClaim",
+            self._field_request([{"id": "identifier", "type": "cpf", "value": invalid_cpf, "required": True}]),
+        )
+        self.assertEqual(invalid["fieldValidation"]["status"], "invalid")
+        self.assertEqual(invalid["formatCheck"], "invalid")
+        repeated = execute(
+            "validation.verifyClaim",
+            self._field_request([{"id": "identifier", "type": "cpf", "value": "00000000000", "required": True}]),
+        )
+        self.assertEqual(repeated["fieldValidation"]["fields"][0]["status"], "invalid")
+
+    def test_dates_reject_impossible_calendar_values_and_failed_relations(self):
+        fields = [
+            {"id": "start", "type": "date", "value": "2026-02-28", "required": True},
+            {"id": "end", "type": "date", "value": "2026-03-01", "required": True},
+        ]
+        relation = {"leftField": "start", "operator": "less_or_equal", "rightField": "end"}
+        valid = execute("validation.verifyClaim", self._field_request(fields, [relation]))
+        self.assertEqual(valid["fieldValidation"]["status"], "valid")
+        self.assertEqual(valid["fieldValidation"]["consistencyStatus"], "consistent")
+
+        impossible_date = execute(
+            "validation.verifyClaim",
+            self._field_request([dict(fields[0], value="2026-02-29")]),
+        )
+        self.assertEqual(impossible_date["fieldValidation"]["status"], "invalid")
+        self.assertEqual(impossible_date["fieldValidation"]["syntaxStatus"], "invalid")
+
+        reversed_range = execute(
+            "validation.verifyClaim",
+            self._field_request(
+                [dict(fields[0], value="2026-03-01"), dict(fields[1], value="2026-02-28")],
+                [relation],
+            ),
+        )
+        self.assertEqual(reversed_range["fieldValidation"]["status"], "invalid")
+        self.assertEqual(reversed_range["fieldValidation"]["consistencyStatus"], "inconsistent")
+        self.assertEqual(reversed_range["fieldValidation"]["relations"][0]["status"], "fail")
+
+    def test_units_use_consumer_allowlist_and_are_not_silently_converted(self):
+        fields = [
+            {"id": "weightA", "type": "quantity", "value": "2", "unit": "kg", "allowedUnits": ["kg", "g"], "required": True},
+            {"id": "weightB", "type": "quantity", "value": "1500", "unit": "g", "allowedUnits": ["kg", "g"], "required": True},
+        ]
+        relation = {"leftField": "weightA", "operator": "less_than", "rightField": "weightB"}
+        result = execute("validation.verifyClaim", self._field_request(fields, [relation]))
+        self.assertEqual(result["formatCheck"], "valid")
+        self.assertEqual(result["fieldValidation"]["status"], "inconclusive")
+        self.assertEqual(result["fieldValidation"]["consistencyStatus"], "inconclusive")
+        self.assertEqual(result["fieldValidation"]["relations"][0]["status"], "not_evaluated")
+
+        unsupported = execute(
+            "validation.verifyClaim",
+            self._field_request([dict(fields[0], unit="lb")]),
+        )
+        self.assertEqual(unsupported["fieldValidation"]["syntaxStatus"], "invalid")
+
+    def test_missing_values_follow_consumer_requiredness(self):
+        fields = [
+            {"id": "start", "type": "date", "value": "2026-01-01", "required": True},
+            {"id": "end", "type": "date", "required": False},
+        ]
+        relation = {"leftField": "start", "operator": "less_or_equal", "rightField": "end"}
+        optional_missing = execute("validation.verifyClaim", self._field_request(fields, [relation]))
+        self.assertEqual(optional_missing["fieldValidation"]["status"], "inconclusive")
+        self.assertEqual(optional_missing["fieldValidation"]["syntaxStatus"], "valid")
+        self.assertEqual(optional_missing["fieldValidation"]["fields"][1]["status"], "missing")
+        self.assertEqual(optional_missing["fieldValidation"]["relations"][0]["status"], "not_evaluated")
+
+        optional_without_relation = execute(
+            "validation.verifyClaim",
+            self._field_request([fields[1]]),
+        )
+        self.assertEqual(optional_without_relation["fieldValidation"]["status"], "valid")
+        self.assertEqual(optional_without_relation["fieldValidation"]["syntaxStatus"], "valid")
+        self.assertEqual(optional_without_relation["fieldValidation"]["fields"][0]["status"], "missing")
+
+        required_missing = execute(
+            "validation.verifyClaim",
+            self._field_request([dict(fields[1], required=True)]),
+        )
+        self.assertEqual(required_missing["fieldValidation"]["status"], "invalid")
+        self.assertEqual(required_missing["fieldValidation"]["syntaxStatus"], "invalid")
+
+    def test_malformed_consumer_relations_fail_as_invalid_requests(self):
+        fields = [
+            {"id": "count", "type": "decimal", "value": "2", "required": True},
+            {"id": "label", "type": "text", "value": "two", "required": True},
+        ]
+        missing_reference = execute(
+            "validation.verifyClaim",
+            self._field_request(fields, [{"leftField": "count", "operator": "equals", "rightField": "missing"}]),
+        )
+        self.assertEqual(missing_reference["code"], "invalid_request")
+
+        unsupported_order = execute(
+            "validation.verifyClaim",
+            self._field_request(fields, [{"leftField": "label", "operator": "less_than", "rightField": "label"}]),
+        )
+        self.assertEqual(unsupported_order["code"], "invalid_request")
+
+        mismatched_types = execute(
+            "validation.verifyClaim",
+            self._field_request(fields, [{"leftField": "count", "operator": "equals", "rightField": "label"}]),
+        )
+        self.assertEqual(mismatched_types["code"], "invalid_request")
+
+    def test_all_declared_comparison_operators_are_evaluated_exactly(self):
+        cases = [
+            ("less_than", "1", "2", "pass"),
+            ("less_or_equal", "2", "2", "pass"),
+            ("greater_than", "2", "1", "pass"),
+            ("greater_or_equal", "1", "1", "pass"),
+            ("equals", "1.0", "1.00", "pass"),
+            ("not_equals", "1", "2", "pass"),
+            ("equals", "1", "2", "fail"),
+        ]
+        for operator, left_value, right_value, expected in cases:
+            with self.subTest(operator=operator, left=left_value, right=right_value):
+                fields = [
+                    {"id": "left", "type": "decimal", "value": left_value, "required": True},
+                    {"id": "right", "type": "decimal", "value": right_value, "required": True},
+                ]
+                relation = {"leftField": "left", "operator": operator, "rightField": "right"}
+                result = execute("validation.verifyClaim", self._field_request(fields, [relation]))
+                self.assertEqual(result["fieldValidation"]["relations"][0]["status"], expected)
+
+    def test_same_unit_quantities_can_be_compared_without_conversion(self):
+        fields = [
+            {"id": "first", "type": "quantity", "value": "1.5", "unit": "kg", "allowedUnits": ["kg"], "required": True},
+            {"id": "second", "type": "quantity", "value": "2", "unit": "kg", "allowedUnits": ["kg"], "required": True},
+        ]
+        relation = {"leftField": "first", "operator": "less_than", "rightField": "second"}
+        result = execute("validation.verifyClaim", self._field_request(fields, [relation]))
+        self.assertEqual(result["fieldValidation"]["status"], "valid")
+        self.assertEqual(result["fieldValidation"]["relations"][0]["status"], "pass")
+
+    def test_field_validation_respects_declared_count_limits(self):
+        fields = [
+            {"id": f"field{index}", "type": "text", "value": "synthetic", "required": True}
+            for index in range(50)
+        ]
+        at_limit = execute("validation.verifyClaim", self._field_request(fields))
+        self.assertEqual(at_limit["fieldValidation"]["status"], "valid")
+        self.assertEqual(len(at_limit["fieldValidation"]["fields"]), 50)
+
+        over_limit = execute("validation.verifyClaim", self._field_request(fields + [fields[0]]))
+        self.assertEqual(over_limit["code"], "invalid_request")
 
 
 if __name__ == "__main__":

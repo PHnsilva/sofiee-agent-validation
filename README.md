@@ -54,6 +54,8 @@ O repositório é público para consulta e sugestões por issue ou PR. Mudanças
 
 O núcleo recebe operações estruturadas dos contratos v1 e devolve planos de evidência por tipo de dado. Sem conector para reabrir fontes, referências candidatas não são prova, todas as auditorias de Busca ficam inconclusivas e filtros não são removidos. Sem regra de formato explícita, `formatCheck` permanece `not_checked`. O plano e suas limitações estão em [evidência do runtime](docs/RUNTIME_EVIDENCE.md).
 
+`validation.verifyClaim` pode receber `fieldValidation` com campos e relações declarados pelo consumidor. A ferramenta confere dígitos verificadores de CPF, datas ISO, decimais canônicos, unidades presentes no conjunto permitido pelo consumidor e relações entre campos tipados. Respostas distinguem sintaxe, consistência e veracidade; veracidade permanece `not_checked`, e CPF estruturalmente válido não comprova identidade. Campo obrigatório ausente é inválido; campo opcional ausente ou relação não avaliável deixa o resultado inconclusivo. Conversão de unidades não é implícita.
+
 O adaptador local Ollama permanece opt-in, mas não é invocado para decidir fatos: sem evidência reaberta, o modelo não pode confirmar/refutar. Nenhuma fonte externa, credencial ou API paga foi usada. O servidor MCP interno permanece na issue #8.
 
 Comandos locais:

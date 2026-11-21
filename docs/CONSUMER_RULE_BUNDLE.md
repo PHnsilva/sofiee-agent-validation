@@ -12,6 +12,22 @@ The identity of a document or rule is its kind, identifier, version and scope. R
 
 Documents are returned with a SHA-256 digest instead of their content. Rule definitions are returned unchanged with a digest so a later domain operation can interpret them under its own contract. The receipt operation does not apply the definitions.
 
+## Applying field rules
+
+`validation.applyConsumerRules` accepts the receipt returned by `validation.inspectConsumerRuleBundle` plus field identifiers, types and submitted values. It applies only these literal declarations:
+
+- `field.<id>.required=true|false`
+- `field.<id>.minimum=<canonical decimal or YYYY-MM-DD>`
+- `field.<id>.maximum=<canonical decimal or YYYY-MM-DD>`
+- `field.<id>.enum=<JSON array of distinct strings>`
+- `relation.<left-id>.<operator>.<right-id>=true`
+
+Relation operators are `equals`, `not_equals`, `less_than`, `less_or_equal`, `greater_than` and `greater_or_equal`. Ordering is limited to dates and numeric fields. Quantity comparisons require identical declared units; the runtime does not convert units. Quantity bounds and enum values include a space followed by a unit, such as `1 kg`.
+
+Requiredness comes only from the consumer's `required` rule. An absent required field fails. An absent optional field is allowed; if requiredness is undeclared, the result is inconclusive. Bounds and enumerations do not apply to an absent optional value. A missing value needed by a cross-field relation makes that relation inconclusive.
+
+Conflicting declarations have no precedence. Unknown rule syntax is not executed and makes the whole evaluation inconclusive without applying a subset. The evaluator reports the field and rule identifier for each result. A `valid` result means only that the supported declared rules passed for the submitted values; it does not establish factual truth, identity, authorization, origin or permission to write to a system.
+
 ## Trust and authority
 
 Origin, version and scope are declarations; the runtime does not fetch sources or authenticate their publisher. Document content is hashed but not parsed, executed, or used to alter permissions. The result reports `provenance: declared_only` and `authority: none`. A structurally received bundle does not prove that its claims are true or authorize access to a consumer system.
