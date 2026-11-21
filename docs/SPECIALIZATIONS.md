@@ -11,4 +11,6 @@
 
 Cada especialidade deve ter: missão, entradas, saída, ferramentas permitidas, o que não faz, casos positivos/negativos, critério de qualidade e evidências. Perfil descrito não é modelo treinado nem processo independente. O catálogo de papéis não habilita rede, shell, compras ou publicação. Somente Pedro aceita a competência demonstrada.
 
+A coordenação interna usa ferramentas já contratadas pelo domínio. Ela organiza dependências e valida resultados; não transforma ferramentas em perfis isolados nem delega tarefas a processos externos. A execução permanece inconclusiva quando falta uma fonte adequada.
+
 O agente de Busca localiza fontes e aplica critérios; o de Validação escolhe a base apropriada e verifica referências independentemente. Cálculo executa contas verificáveis; Comunicação entende/expressa a interação; SlothEngineer cuida de arquitetura/código/DevOps e não deve absorver voz ou o domínio dos consumidores.

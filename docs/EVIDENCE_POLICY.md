@@ -33,3 +33,5 @@ A independência é do procedimento e da evidência: compartilhar um modelo base
 - Estudos: https://ieeexplore.ieee.org/ , https://sol.sbc.org.br/ e https://dl.acm.org/
 
 Nenhum adaptador é declarado pronto por esta lista. Acesso pago/privado, autorização, limitação de API e conteúdo não acessível devem ser registrados; não contornar bloqueios nem apresentar confirmação inexistente.
+
+A entrada composta também não altera essa política: sem conector independente e autorização disponível, o coordenador registra a dependência e preserva o veredito inconclusivo. Veja o [fluxo interno de tarefa](INTERNAL_COORDINATION.md).
