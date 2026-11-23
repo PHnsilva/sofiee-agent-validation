@@ -1,0 +1,9 @@
+# Evidência do runtime local — issue #7
+
+O runtime recebe somente operações estruturadas dos contratos v1. Seleciona a classe de fonte conforme o tipo do dado (estudos e repositórios acadêmicos; indicadores oficiais; cadastros públicos; entidade normativa; oferta original; documentação técnica; ou sistema autorizado). A seleção é um plano de verificação, não evidência nem veredito.
+
+Nenhum conector para fontes externas ou sistemas consumidores está configurado nesta entrega. Por isso, referências candidatas permanecem não reabertas, `formatCheck` fica `not_checked` sem regra explícita, e o veredito factual é `inconclusive`. A auditoria de Busca preserva cada filtro exigido e marca todos como `unverifiable`; trechos de Busca nunca são convertidos em evidência.
+
+A inferência não foi invocada: os pedidos são estruturados e escolher uma fonte é determinístico; sem fonte reaberta, um modelo não pode confirmar/refutar a afirmação. O adaptador Ollama local compartilhado permanece opt-in, mas não há seleção nem medição de modelo de domínio nesta issue. Não há acesso a fontes, segredo, dado privado, rede, API paga, fallback remoto ou pacote de terceiros.
+
+Validação realizada no CPython 3.13.15: `python -m unittest discover -s tests -v`, `scripts/validate_contracts.py`, `scripts/check_environment.py` e `git diff --check`. A suíte cobre todos os nove tipos de dado, falta de autorização de sistema, referências não reabertas, camisa branca preservando categoria/cor/tamanho e entrada inválida. `scripts/measure_runtime.py` mede 1.000 chamadas sequenciais do handler determinístico em memória; duas execuções nesta máquina levaram 25,86 ms e 41,49 ms. Esses tempos excluem CLI, fontes, rede e inferência, e não representam auditoria externa. Os testes validam comportamento local, não a verdade de alegações nem o funcionamento de conectores externos.
